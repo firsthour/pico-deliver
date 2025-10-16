@@ -1,5 +1,6 @@
 function move()
 	tick += 1
+	moved = false
 
 	if teleporting then
 		teleport()
@@ -25,64 +26,88 @@ function walk()
 		px -= 1
 		pt = false
 		current_step_count -= 1
-		add(path, {
-			x = px,
-			y = py,
-			d = pd,
-			s = current_step_count
-		}, 1)
+		store_path()
+		moved = true
 	elseif br and px < playablex and check(px + 1, py) then
 		px += 1
 		pt = false
 		current_step_count -= 1
-		add(path, {
-			x = px,
-			y = py,
-			d = pd,
-			s = current_step_count
-		}, 1)
+		store_path()
+		moved = true
 	elseif bu and py > 0 and check(px, py - 1) then
 		py -= 1
 		pt = false
 		current_step_count -= 1
-		add(path, {
-			x = px,
-			y = py,
-			d = pd,
-			s = current_step_count
-		}, 1)
+		store_path()
+		moved = true
 	elseif bd and py < playabley and check(px, py + 1) then
 		py += 1
 		pt = false
 		current_step_count -= 1
-		add(path, {
-			x = px,
-			y = py,
-			d = pd,
-			s = current_step_count}, 1)
+		store_path()
+		moved = true
+	elseif pt and (bl and px == 0 or br and px == playablex or bu and py == 0 or bd and py == playabley) then
+		--move between maps while traveling
+		change_map()
+		moved = true
 	end
 
 	--player has run out of steps so teleport them to the level's origin
 	if not debug and not level.completed and current_step_count < 0 then
-		current_step_count = 0
-		psp = 5
-		pt = true
-		teleporting = true
-		pq("path =", path)
+		die()
+		teleport_started = true
 	end
+end
+
+function die()
+	sfx(18)
+	current_step_count = 0
+	psp = 5
+	pt = true
+	teleporting = true
+	del(path, path[1])
+	pq("path =", path)
 end
 
 function check(nextx, nexty)
 	if(nextx < 0 or nextx > playablex or nexty < 0 or nexty > playabley) return false
 	if(debug or current_step_count == 0) return true
+	
+	--water/bridge check
+	local waterx = nextx + level.mapx
+	local watery = nexty + level.mapy
+	if mget(waterx, watery) == floor_sprite + 3 then
+		for i in all(inventory) do
+			if i.bridge then
+				sfx(1)
+				del(inventory, i)
+				mset(waterx, watery, i.sprite)
+				level.grid = build_grid(level.mapx, level.mapy, level)
+				level.grass = 0
+				break
+			end
+		end
+	end
+
 	local counter = level.grid[nextx + 1][nexty + 1].count
 	return level.completed and counter < max or counter <= steps and current_step_count > 0
 end
 
 function handle()
-	--for s in all(level.stuff) do
 	for s in all(stuff) do
-		if(not teleporting and s.x >= level.mapx and s.x <= level.mapx + playablex and s.y >= level.mapy and s.y <= level.mapy + playabley) s:handle()
+		if(not teleporting and s:same_level()) s:handle()
+	end
+end
+
+function unmove()
+	for s in all(stuff) do
+		if(s.mover and s.ground and s:same_level()) s:unmove()
+	end
+end
+
+function reset()
+	for s in all(stuff) do
+		if(s.ground and s:same_level()) s:reset()
 	end
 end
 
@@ -124,6 +149,10 @@ function teleport()
 		if(path[1].item) path[1].item:unhandle()
 
 		del(path, path[1])
+
+		--wait one set of ticks for the player to actually rewind
+		if(not teleport_started) unmove()
+		teleport_started = false
 	end
 
 	if #path == 0 then
@@ -148,4 +177,15 @@ function reset_level_steps()
 	current_step_count = steps
 	level.grid = build_grid(level.mapx, level.mapy, level)
 	level.grass = 0
+end
+
+function store_path()
+	if not level.completed then
+		add(path, {
+			x = px,
+			y = py,
+			d = pd,
+			s = current_step_count
+		}, 1)
+	end
 end

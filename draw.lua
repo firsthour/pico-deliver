@@ -43,6 +43,16 @@ function draw_bottom()
 	for i = 1, #inventory do
 		spr(inventory[i].sprite, (i + 2) * size, 15 * size)
 	end
+
+	for x = 0, 7, 1 do
+		for y = 0, 3, 1 do
+			if is_level_completed(x * playablex, y * playabley) then
+				rectfill(103 + x * 3, 114 + y * 3, 106 + x * 3, 117 + y * 3, 7)
+			else
+				rect(103 + x * 3, 114 + y * 3, 106 + x * 3, 117 + y * 3, 7)
+			end
+		end
+	end
 end
 
 function tile()

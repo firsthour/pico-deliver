@@ -3,7 +3,7 @@ function _init()
 
 	--globals
 	max = 0x7fff
-	debug = false
+	--debug = true
 	open_gate_sprite = 21
 	floor_sprite = 48
 
@@ -27,6 +27,7 @@ function _init()
 	pd = 0 --player direction
 	pt = false --is player traveling
 	teleporting = false
+	teleport_started = false
 	steps = 5 --player steps
 	current_step_count = steps --current step count
 	path = {}
@@ -35,6 +36,8 @@ function _init()
 	completed_levels = {} --use helper methods for lookup
 	grass_levels = {} --use helper methods for lookup
 	coins = 0
+	moved = false
+	enemies = {}
 
 	scan_and_update_full_map()
 
@@ -103,6 +106,20 @@ function scan_and_update_full_map()
 				pq("apple", x, y)
 				mset(x, y, floor_sprite)
 				add(stuff, food:new(x, y, 35))
+			elseif loc == 57 then
+				--shop
+				pq("shop", x, y)
+				mset(x, y, floor_sprite)
+				add(stuff, shop:new(x, y, 36))
+			elseif loc == 56 then
+				--river
+				pq("river", x, y)
+				mset(x, y, floor_sprite + 3)
+			elseif loc == 55 then
+				--dog
+				pq("dog", x, y)
+				mset(x, y, floor_sprite)
+				add(stuff, dog:new(x, y))
 			elseif loc == 61 then
 				--player, should only be at the very start
 				pq("player", x, y)
@@ -140,6 +157,8 @@ function change_map()
 	local lvl = build_level(newx, newy, is_level_completed(newx, newy))
 
 	level = lvl
+
+	reset()
 end
 
 function store_level_completion()
