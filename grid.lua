@@ -6,8 +6,6 @@ function build_grid(mapx, mapy, lvl)
 	local cand = {}
 	local step = 0
 
-	pq("building grid")
-
 	--initialize with player position
 	add(cand, { x = px, y = py })
 

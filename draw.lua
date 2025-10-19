@@ -44,12 +44,15 @@ function draw_bottom()
 		spr(inventory[i].sprite, (i + 2) * size, 15 * size)
 	end
 
-	for x = 0, 7, 1 do
+	local offsetx = 115
+	local offsety = 114
+
+	for x = 0, 3, 1 do
 		for y = 0, 3, 1 do
 			if is_level_completed(x * playablex, y * playabley) then
-				rectfill(103 + x * 3, 114 + y * 3, 106 + x * 3, 117 + y * 3, 7)
+				rectfill(offsetx + x * 3, offsety + y * 3, offsetx + 3 + x * 3, offsety + 3 + y * 3, 7)
 			else
-				rect(103 + x * 3, 114 + y * 3, 106 + x * 3, 117 + y * 3, 7)
+				rect(offsetx + x * 3, offsety + y * 3, offsetx + 3 + x * 3, offsety + 3 + y * 3, 7)
 			end
 		end
 	end
@@ -102,7 +105,7 @@ function tile()
 end
 
 function full(x, y)
-	return mget(x, y) == 63
+	return mget(x, y) == 64
 end
 
 function tiler(sprite, x, y)

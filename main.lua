@@ -3,13 +3,16 @@ function _init()
 
 	--globals
 	max = 0x7fff
-	--debug = true
+	debug = false
 	open_gate_sprite = 21
-	floor_sprite = 48
+	base_floor_sprite = 48
+	floor_sprite = base_floor_sprite
+	debug_world = 5
 
 	tick = 0
 	teleport_tick = 8
 	grass_tick = 4
+	slide_tick = 4
 	
 	--hold down button frames
 	poke(0x5f5c, 4) --start
@@ -37,11 +40,40 @@ function _init()
 	grass_levels = {} --use helper methods for lookup
 	coins = 0
 	moved = false
-	enemies = {}
+	reset_level_flag = false
+	boating = false
+	lavad = {}
+	lavad[playabley] = true
+	lavad[playabley * 2] = true
+	lavad[playabley * 3] = true
+	sliding = false
+	last_move = ""
 
 	scan_and_update_full_map()
 
-	level = build_level(0, 0)
+	if debug_world == 2 then
+		steps = 7
+		level = build_level(0, playabley * 3)
+		px = 15
+		py = 12
+	elseif debug_world == 3 then
+		steps = 7
+		level = build_level(playablex, playabley * 3)
+		px = 13
+		py = 0
+	elseif debug_world == 4 then
+		steps = 7
+		level = build_level(playablex, playabley)
+		px = 8
+		py = 0
+	elseif debug_world == 5 then
+		steps = 7
+		level = build_level(playablex, playabley * 3)
+		px = 15
+		py = 12
+	else
+		level = build_level(0, 0)
+	end
 
 	--music(4)
 end
@@ -75,55 +107,96 @@ function build_level(x, y, comp)
 		s = current_step_count
 	})
 
+	floor_sprite = calc_floor_sprite(lvl.mapx, lvl.mapy)
+
 	return lvl
+end
+
+function calc_floor_sprite(x, y)
+	if x >= 0 and x < playablex then
+		return base_floor_sprite
+	elseif x >= playablex and x < playablex * 2 then
+		return base_floor_sprite + 4
+	elseif x >= playablex * 2 and y >= playabley * 2 then
+		return base_floor_sprite + 8
+	elseif x >= playablex * 2 and y < playabley * 2 then
+		return base_floor_sprite + 12
+	end
 end
 
 function scan_and_update_full_map()
 	for x = 0, 127 do
 		for y = 0, 63 do
 			local loc = mget(x, y)
+			local fs = calc_floor_sprite(x, y)
 			
-			if loc == floor_sprite then
+			if loc == fs then
 				--draw sad textured ground
-				mset(x, y, floor_sprite + 1)
-			elseif loc == 60 then
+				mset(x, y, fs + 1)
+			elseif loc == 67 then
 				--envelope
-				pq("envelope", x, y)
-				mset(x, y, floor_sprite)
-				add(stuff, envelope:new(x, y))
-			elseif loc == 62 then
+				mset(x, y, fs + 1)
+				add(stuff, envelope:new("envelope", x, y))
+			elseif loc == 65 then
 				--mailbox
-				pq("mailbox", x, y)
-				mset(x, y, floor_sprite)
-				add(stuff, mailbox:new(x, y))
-			elseif loc == 59 then
+				mset(x, y, fs)
+				add(stuff, mailbox:new("mailbox", x, y))
+			elseif loc == 68 or loc == 74 then
 				--gate
-				pq("gate", x, y)
-				mset(x, y, floor_sprite)
-				add(stuff, gate:new(x, y))
-			elseif loc == 58 then
+				mset(x, y, fs)
+				local gate = gate:new("gate", x, y)
+				if loc == 74 then
+					gate.open = true
+					gate.sprite = open_gate_sprite
+				end
+				add(stuff, gate)
+			elseif loc == 69 then
 				--apple
-				pq("apple", x, y)
-				mset(x, y, floor_sprite)
-				add(stuff, food:new(x, y, 35))
-			elseif loc == 57 then
+				mset(x, y, fs)
+				add(stuff, food:new("apple", x, y, 35))
+			elseif loc == 70 then
 				--shop
-				pq("shop", x, y)
-				mset(x, y, floor_sprite)
-				add(stuff, shop:new(x, y, 36))
-			elseif loc == 56 then
+				mset(x, y, fs)
+				add(stuff, shop:new("shop", x, y, 36))
+			elseif loc == 71 then
 				--river
-				pq("river", x, y)
-				mset(x, y, floor_sprite + 3)
-			elseif loc == 55 then
+				mset(x, y, fs + 3)
+			elseif loc == 72 or loc == 73 then
 				--dog
-				pq("dog", x, y)
-				mset(x, y, floor_sprite)
-				add(stuff, dog:new(x, y))
-			elseif loc == 61 then
+				mset(x, y, fs + 1)
+				local dog = dog:new("dog", x, y)
+				if loc == 73 then
+					dog.xdirection = -1
+					dog.oxdirection = -1
+				end
+				add(stuff, dog)
+			elseif loc == 75 then
+				--rope
+				mset(x, y, fs + 1)
+				add(stuff, rope:new("rope", x, y))
+			elseif loc == 76 then
+				--cave
+				add(stuff, cave:new("cave", x, y))
+			elseif loc == 77 then
+				--bridge
+				mset(x, y, fs)
+				add(stuff, bridge:new("bridge", x, y, 27))
+			elseif loc == 78 then
+				--boat
+				mset(x, y, fs)
+				add(stuff, boat:new("boat", x, y, 78))
+			elseif loc == 79 then
+				--lava gate
+				add(stuff, lavagate:new("lava gate", x, y))
+			elseif loc == 94 then
+				--lava mailbox
+				add(stuff, lavamailbox:new("lava mailbox", x, y))
+			elseif loc == 93 then
+				--ice
+				add(stuff, ice:new("ice", x, y))
+			elseif loc == 66 then
 				--player, should only be at the very start
-				pq("player", x, y)
-				mset(x, y, floor_sprite)
+				mset(x, y, fs)
 				px = x
 				py = y
 			end
@@ -154,9 +227,19 @@ function change_map()
 
 	current_step_count = steps
 
-	local lvl = build_level(newx, newy, is_level_completed(newx, newy))
+	level = build_level(newx, newy, is_level_completed(newx, newy))
 
-	level = lvl
+	--switch hanging rope/bridge to identical permanent sprite so during rewind we don't rewind it
+	for x = 1, playablex do
+		for y = 1, playabley do
+			local loc = mget(x + level.mapx, y + level.mapy)
+			if loc == 38 then
+				mset(x + level.mapx, y + level.mapy, 39)
+			elseif loc == 27 then
+				mset(x + level.mapx, y + level.mapy, 28)
+			end
+		end
+	end
 
 	reset()
 end
