@@ -194,6 +194,10 @@ function scan_and_update_full_map()
 			elseif loc == 93 then
 				--ice
 				add(stuff, ice:new("ice", x, y))
+			elseif loc == 81 then
+				--rock
+				mset(x, y, fs)
+				add(stuff, rock:new("rock", x, y))
 			elseif loc == 66 then
 				--player, should only be at the very start
 				mset(x, y, fs)
@@ -245,7 +249,11 @@ function change_map()
 end
 
 function store_level_completion()
-	completed_levels[level.mapx * 13 + level.mapy * 9] = true
+	store_level_completion_impl(level.mapx, level.mapy)
+end
+
+function store_level_completion_impl(x, y)
+	completed_levels[x * 13 + y * 9] = true
 end
 
 function is_level_completed(mapx, mapy)

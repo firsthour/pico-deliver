@@ -13,7 +13,8 @@ object = {
 	rope = false,	
 	xdirection = 1,
 	oxdirection = 1,
-	mover = false
+	mover = false,
+	pushable = false
 }
 
 function object:new(type, x, y, sprite)
@@ -60,6 +61,9 @@ function object:reset()
 end
 
 function object:level_complete()
+end
+
+function object:unpush()
 end
 
 envelope = object:new()
@@ -378,6 +382,9 @@ function lavamailbox:handle()
 			self.sprite = 10
 			level.completed = true
 			store_level_completion()
+			store_level_completion_impl(playablex, 0)
+			store_level_completion_impl(playablex, playabley)
+			store_level_completion_impl(playablex, playabley * 2)
 			current_step_count = -1
 			level.grid = build_grid(level.mapx, level.mapy, level)
 			level.grass = 0
@@ -392,4 +399,26 @@ function ice:handle()
 	if self:coll() then
 		sliding = true
 	end
+end
+
+rock = object:new()
+rock.sprite = 40
+rock.pushable = true
+
+function rock:handle()
+	if self.pushing then
+		pq("pushed", self.x, self.y, self.pushingx, self.pushingy)
+		path[2].pushed = self
+		path[2].pushx = self.x
+		path[2].pushy = self.y
+		self.pushing = false
+		self.x = self.pushingx
+		self.y = self.pushingy
+	end
+end
+
+function rock:unpush()
+	pq("rock unpush", path[1].pushx, path[1].pushy)
+	self.x = path[1].pushx
+	self.y = path[1].pushy
 end

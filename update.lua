@@ -119,7 +119,6 @@ function check(nextx, nexty)
 		return loc == 22 or loc == 26 or loc == 55 or loc == 27 or loc == 28 or loc == 95 or loc == 94
 	end
 	
-	--water/wall check
 	local loc = mget(checkx, checky)
 	if loc == floor_sprite + 3 then
 		--water, bridge
@@ -156,6 +155,9 @@ function check(nextx, nexty)
 		grow_grass_impl(current_step_count)
 		return true
 	end
+	
+	local push_ok = push_check(nextx, nexty)
+	if(not push_ok) return false
 
 	local counter = level.grid[nextx + 1][nexty + 1].count
 	return level.completed and counter < max or counter <= steps and current_step_count > 0
@@ -219,8 +221,6 @@ function teleport()
 
 		if(path[1].item) path[1].item:unhandle()
 
-		del(path, path[1])
-
 		local checkx = px + level.mapx
 		local checky = py + level.mapy
 		
@@ -235,8 +235,13 @@ function teleport()
 		end
 
 		--wait one set of ticks for the player to actually rewind
-		if(not teleport_started) unmove()
+		if not teleport_started then
+			unmove()
+			if(path[1].pushed) path[1].pushed:unpush()
+		end
 		teleport_started = false
+		
+		del(path, path[1])
 	end
 
 	if #path == 0 then
@@ -310,8 +315,6 @@ end
 function lava_flow()
 	if(lavad[py - 1 + level.mapy]) return
 
-	pq("flow", py - 1 + level.mapy)
-
 	local row_above = py - 1 + level.mapy
 	lavad[row_above] = true
 
@@ -352,13 +355,11 @@ function lava_flow()
 	else
 		--find the lava map tile on the row above
 		local loc = mget(3 + level.mapx, py - 1 + level.mapy)
-		pq("flow", py - 1 + level.mapy)
 		for x = 1, playablex - 1 do
 			mset(x + level.mapx, py - 1 + level.mapy, loc)
 		end
 	end
 
-	pq("clearing")
 	for s in all(stuff) do
 		if(s.ground and s:above_row()) s.ground = false
 	end
@@ -385,4 +386,31 @@ function slide()
 		level.grid = build_grid(level.mapx, level.mapy, level)
 		grow_grass_impl(current_step_count)
 	end
+end
+
+function push_check(nextx, nexty)
+	for s in all(stuff) do
+		if s.pushable and s.ground and s:same_level() and s.x == level.mapx + nextx and s.y == level.mapy + nexty then
+			local dx = nextx - px
+			local dy = nexty - py
+
+			local dest = level.grid[nextx + 1 + dx][nexty + 1 + dy].count
+			if dest == max then
+				return false
+			else
+				for s2 in all(stuff) do
+					if s2.ground and s2:same_level() and s2.x == nextx + dx + level.mapx and s2.y == nexty + dy + level.mapy then
+						return false
+					end
+				end
+			end
+
+			s.pushing = true
+			s.pushingx = nextx + dx + level.mapx
+			s.pushingy = nexty + dy + level.mapy
+			return true
+		end
+	end
+
+	return true
 end
