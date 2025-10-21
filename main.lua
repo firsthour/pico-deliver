@@ -7,12 +7,16 @@ function _init()
 	open_gate_sprite = 21
 	base_floor_sprite = 48
 	floor_sprite = base_floor_sprite
-	debug_world = 5
+	debug_world = 0
 
 	tick = 0
 	teleport_tick = 8
+	teleport_slide_tick = 4
 	grass_tick = 4
 	slide_tick = 4
+	rock_slide_tick = 2
+	shop_flash_tick = 8
+	inventory_flash_tick = 8
 	
 	--hold down button frames
 	poke(0x5f5c, 4) --start
@@ -48,6 +52,9 @@ function _init()
 	lavad[playabley * 3] = true
 	sliding = false
 	last_move = ""
+	booting = false
+	show_coins = true
+	flash_coins = false
 
 	scan_and_update_full_map()
 
@@ -71,6 +78,23 @@ function _init()
 		level = build_level(playablex, playabley * 3)
 		px = 15
 		py = 12
+	elseif debug_world == 6 then
+		steps = 8
+		level = build_level(playablex * 2, playabley * 3)
+		px = 15
+		py = 11
+	elseif debug_world == 7 then
+		steps = 8
+		coins = 7
+		level = build_level(playablex * 3, playabley * 3)
+		px = 11
+		py = 0
+	elseif debug_world == 8 then
+		steps = 8
+		coins = 5
+		level = build_level(playablex * 2, playabley * 2)
+		px = 7
+		py = 0
 	else
 		level = build_level(0, 0)
 	end
@@ -141,13 +165,16 @@ function scan_and_update_full_map()
 				--mailbox
 				mset(x, y, fs)
 				add(stuff, mailbox:new("mailbox", x, y))
-			elseif loc == 68 or loc == 74 then
+			elseif loc == 68 or loc == 74 or loc == 85 then
 				--gate
 				mset(x, y, fs)
 				local gate = gate:new("gate", x, y)
-				if loc == 74 then
+				if loc == 74 or loc == 85 then
 					gate.open = true
 					gate.sprite = open_gate_sprite
+				end
+				if loc == 85 then
+					gate.lock_behind = true
 				end
 				add(stuff, gate)
 			elseif loc == 69 then
@@ -155,9 +182,19 @@ function scan_and_update_full_map()
 				mset(x, y, fs)
 				add(stuff, food:new("apple", x, y, 35))
 			elseif loc == 70 then
-				--shop
+				--shop bridge
 				mset(x, y, fs)
-				add(stuff, shop:new("shop", x, y, 36))
+				local shop = shop:new("shop", x, y)
+				shop.price = 3
+				shop.item = bridge:new("bridge", 0, 0)
+				add(stuff, shop)
+			elseif loc == 83 then
+				--shop boot
+				mset(x, y, fs)
+				local shop = shop:new("shop", x, y)
+				shop.price = 4
+				shop.item = boot:new("boot", 0, 0)
+				add(stuff, shop)
 			elseif loc == 71 then
 				--river
 				mset(x, y, fs + 3)
@@ -191,13 +228,25 @@ function scan_and_update_full_map()
 			elseif loc == 94 then
 				--lava mailbox
 				add(stuff, lavamailbox:new("lava mailbox", x, y))
-			elseif loc == 93 then
+			elseif loc == 80 then
 				--ice
 				add(stuff, ice:new("ice", x, y))
 			elseif loc == 81 then
 				--rock
 				mset(x, y, fs)
 				add(stuff, rock:new("rock", x, y))
+			elseif loc == 82 then
+				--boot
+				mset(x, y, fs)
+				add(stuff, boot:new("boot", x, y))
+			elseif loc == 84 then
+				--banana
+				mset(x, y, fs)
+				add(stuff, banana:new("banana", x, y))
+			elseif loc == 86 then
+				--disappearing block
+				mset(x, y, 64)
+				add(stuff, disappearing_block:new("disappearing_block", x, y))
 			elseif loc == 66 then
 				--player, should only be at the very start
 				mset(x, y, fs)

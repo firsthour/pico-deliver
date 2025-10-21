@@ -28,22 +28,49 @@ function draw_steps()
 end
 
 function draw_bottom()
+	draw_health()
+	draw_coins()
+	draw_inventory()
+	draw_map()
+end
+
+function draw_health()
 	print(level.completed
 		and "delivered!"
 		or "♥ " .. current_step_count .. " / " .. steps,
 			2,
 			(playabley + 1) * size + 2,
 			14)
+end
 
-	print("♪ " .. coins,
-		2,
-		(playabley + 2) * size + 2,
-		14)
-
-	for i = 1, #inventory do
-		spr(inventory[i].sprite, (i + 2) * size, 15 * size)
+function draw_coins()
+	if flash_coins and tick % shop_flash_tick == 0 then
+		show_coins = not show_coins
 	end
 
+	if show_coins then
+		print("♪ " .. coins,
+			2,
+			(playabley + 2) * size + 2,
+			14)
+	end
+end
+
+function draw_inventory()
+	for i = 1, #inventory do
+		local inv = inventory[i]
+
+		if inv.flash and tick % inventory_flash_tick == 0 then
+			inv.show = not inv.show
+		end
+
+		if not inv.flash or inv.flash and inv.show then
+			spr(inv.sprite, (i + 2) * size, 15 * size)
+		end
+	end
+end
+
+function draw_map()
 	local offsetx = 115
 	local offsety = 114
 

@@ -14,7 +14,11 @@ object = {
 	xdirection = 1,
 	oxdirection = 1,
 	mover = false,
-	pushable = false
+	pushable = false,
+	slidex = 0,
+	slidey = 0,
+	ice = false,
+	gate = false
 }
 
 function object:new(type, x, y, sprite)
@@ -118,19 +122,31 @@ function mailbox:handle()
 end
 
 gate = object:new()
+gate.gate = true
 gate.sprite = 20
 gate.open = false
+gate.lock_behind = false
+gate.collided = false
 
 function gate:handle()
-	if level.completed and not self.open then
+	if level.completed and not self.open and not self.lock_behind then
 		mset(self.x, self.y, floor_sprite)
 		self.open = true
 		self.sprite = open_gate_sprite
 	end
 
+	if moved and self.lock_behind and self.collided then
+		pq("lock behind")
+		self.collided = false
+		self.open = false
+		self.sprite = 11
+	end
+
 	if not pt and self:coll() then
 		pt = true
 		change_map()
+		self.collided = true
+		pq("collided")
 	end
 end
 
@@ -155,29 +171,68 @@ function food:unhandle()
 end
 
 shop = object:new()
+shop.show_price = true
+shop.flashing = false
+shop.flash_count = 0
+shop.standing = false
+shop.price = 0
+shop.item = nil
 
 function shop:draw()
 	if self.ground and self:same_level() then
-		--draw stamp
-		draw_object(self)
-
 		--draw object to sell
-		spr(27, (self.x - level.mapx) * size, (self.y - level.mapy - 1) * size)
+		spr(self.item.sprite, (self.x - level.mapx) * size, (self.y - level.mapy) * size)
 
 		local x = (self.x - level.mapx) * size
 		local y = (self.y - level.mapy) * size + 2
-		print("3", x, y, 0)
-		print("♪", x + 3, y, 0)
-		print("shop", x - 4, y + 8, 0)
+
+		if self.flashing and tick % shop_flash_tick == 0 then
+			self.show_price = not self.show_price
+			self.flash_count += 1
+			if self.flash_count == 8 then
+				self.flashing = false
+				self.show_price = true
+				flash_coins = false
+				show_coins = true
+			end
+		end
+
+		if self.show_price then
+			print(self.price, x, y + size - 1, 0)
+			print("♪", x + 3, y + size - 1, 0)
+		end
 	end
 end
 
 function shop:handle()
-	if self:coll() and coins >= 3 then
-		self.ground = false
-		add(inventory, bridge:new("bridge", 0, 0))
-		coins -= 3
+	if self:coll() then
+		if coins >= self.price then
+			self.ground = false
+			add(inventory, self.item)
+			coins -= self.price
+			path[1].item = self
+			for s in all(stuff) do
+				if s.gate and not s.open and s.lock_behind and s:same_level() then
+					s.open = true
+					s.sprite = 21
+				end
+			end
+		elseif not self.flashing and not self.standing then
+			self.flashing = true
+			self.flash_count = 0
+			self.standing = true
+			flash_coins = true
+			flash_coin_count = 0
+		end
+	else
+		self.standing = false
 	end
+end
+
+function shop:unhandle()
+	del(inventory, self.item)
+	self.ground = true
+	coins += self.price
 end
 
 bridge = object:new()
@@ -251,7 +306,16 @@ function dog:level_complete()
 end
 
 function check_enemy_move(nextx, nexty)
-	return not (nextx < 0 or nextx > playablex or nexty < 0 or nexty > playabley or fget(mget(nextx + level.mapx, nexty + level.mapy), 0))
+	local blocked = nextx < 0 or nextx > playablex or nexty < 0 or nexty > playabley or fget(mget(nextx + level.mapx, nexty + level.mapy), 0)
+	if(blocked) return false
+
+	for s in all(stuff) do
+		if s.ground and s.pushable and s.x == nextx + level.mapx and s.y == nexty + level.mapy then
+			return false
+		end
+	end
+
+	return true
 end
 
 rope = object:new()
@@ -393,11 +457,19 @@ function lavamailbox:handle()
 end
 
 ice = object:new()
-ice.sprite = 80
+ice.ice = true
 
 function ice:handle()
-	if self:coll() then
-		sliding = true
+	if not booting and moved and self:coll() then
+		for i in all(inventory) do
+			if(i.type == "boot") then
+				i.flash = true
+				booting = true
+				break
+			end
+		end
+
+		if(not booting) sliding = true
 	end
 end
 
@@ -406,19 +478,105 @@ rock.sprite = 40
 rock.pushable = true
 
 function rock:handle()
+	if self.slidex != 0 or self.slidey != 0 then
+		if(tick % rock_slide_tick != 0) return
+
+		self.x += self.slidex
+		self.y += self.slidey
+
+		local blocked = false
+		local loc = mget(self.x, self.y)
+		if loc != 80 then
+			blocked = true
+		else
+			for s in all(stuff) do
+				if s.ground and s.pushable and s.x == self.x + self.slidex and s.y == self.y + self.slidey then
+					blocked = true
+					break
+				end
+			end
+
+			if not blocked then
+				local counter = level.grid[self.x + self.slidex - level.mapx + 1][self.y + self.slidey - level.mapy + 1].count
+				if(counter == max) blocked = true
+			end
+		end
+
+		if blocked then
+			self.slidex = 0
+			self.slidey = 0
+		end
+	end
+
 	if self.pushing then
-		pq("pushed", self.x, self.y, self.pushingx, self.pushingy)
 		path[2].pushed = self
 		path[2].pushx = self.x
 		path[2].pushy = self.y
 		self.pushing = false
 		self.x = self.pushingx
 		self.y = self.pushingy
+
+		local loc = mget(self.x, self.y)
+		if loc == 80 then
+			self.slidex = self.x - path[2].pushx
+			self.slidey = self.y - path[2].pushy
+		end
 	end
 end
 
 function rock:unpush()
-	pq("rock unpush", path[1].pushx, path[1].pushy)
 	self.x = path[1].pushx
 	self.y = path[1].pushy
+end
+
+boot = object:new()
+boot.sprite = 41
+
+function boot:handle()
+	if self:coll() then
+		sfx(0)
+		self.ground = false
+		path[1].item = self
+		add(inventory, self)
+
+		reset_level_steps()
+
+		path[1].s = current_step_count
+	end
+end
+
+function boot:unhandle()
+	del(inventory, self)
+	self.ground = true
+end
+
+banana = object:new()
+banana.sprite = 84
+
+function banana:handle()
+	if self:coll() then
+		sfx(0)
+		self.ground = false
+		path[1].item = self
+		reset_level_steps()
+		path[1].s = current_step_count
+	end
+end
+
+function banana:unhandle()
+	self.ground = true
+	current_step_count -= 1
+end
+
+disappearing_block = object:new()
+disappearing_block.sprite = 64
+
+function disappearing_block:handle()
+	if self.ground and level.completed and self.sprite == 64 then
+		pq("in here")
+		self.ground = false
+		mset(self.x, self.y, floor_sprite)
+		level.grid = build_grid(level.mapx, level.mapy, level)
+		level.grass = 0
+	end
 end

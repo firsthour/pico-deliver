@@ -103,8 +103,15 @@ function die()
 	psp = 5
 	pt = true
 	teleporting = true
+	booting = false
 	del(path, path[1])
 	pq("path =", path)
+
+	for i = 1, #inventory do
+		if inventory[i].type == "boot" and inventory[i].flash then
+			inventory[i].flash = false
+		end
+	end
 end
 
 function check(nextx, nexty)
@@ -119,6 +126,7 @@ function check(nextx, nexty)
 		return loc == 22 or loc == 26 or loc == 55 or loc == 27 or loc == 28 or loc == 95 or loc == 94
 	end
 	
+	local disable_booting = false
 	local loc = mget(checkx, checky)
 	if loc == floor_sprite + 3 then
 		--water, bridge
@@ -154,13 +162,40 @@ function check(nextx, nexty)
 		level.grid = build_grid(level.mapx, level.mapy, level)
 		grow_grass_impl(current_step_count)
 		return true
+	elseif booting and loc != 80 then
+		disable_booting = true
 	end
 	
 	local push_ok = push_check(nextx, nexty)
 	if(not push_ok) return false
 
 	local counter = level.grid[nextx + 1][nexty + 1].count
-	return level.completed and counter < max or counter <= steps and current_step_count > 0
+	local okay = level.completed and counter < max or counter <= steps and current_step_count > 0
+	if(not okay) return false
+
+	pq("gate check", nextx + level.mapx, nexty + level.mapy)
+	for s in all(stuff) do
+		if(s.gate and not s.open and s.x == nextx + level.mapx and s.y == nexty + level.mapy) return false
+	end
+
+	if disable_booting then
+		booting = false
+		
+		for i = 1, #inventory do
+			local flashing_boot
+			if inventory[i].type == "boot" and inventory[i].flash then
+				flashing_boot = inventory[i]
+				flashing_boot.flash = false
+			end
+
+			if flashing_boot then
+				path[1].boot = flashing_boot
+				del(inventory, flashing_boot)
+			end
+		end
+	end
+
+	return true
 end
 
 function handle()
@@ -208,7 +243,7 @@ end
 
 function teleport()
 	--only move every X frames
-	if(tick % teleport_tick != 0) return
+	if(tick % (path[1].sliding and teleport_slide_tick or teleport_tick) != 0) return
 
 	pq("teleporting", path[1], path[1].x, path[1].y)
 	if #path > 0 then
@@ -220,6 +255,11 @@ function teleport()
 		if(current_step_count < 0) current_step_count = 0
 
 		if(path[1].item) path[1].item:unhandle()
+
+		if path[1].boot then
+			pq("greg path booted")
+			add(inventory, path[1].boot)
+		end
 
 		local checkx = px + level.mapx
 		local checky = py + level.mapy
@@ -366,23 +406,50 @@ function lava_flow()
 end
 
 function slide()
+	local dx = 0
+	local dy = 0
 	if last_move == "right" then
-		px += 1
+		dx = 1
 	elseif last_move == "left" then
-		px -= 1
+		dx = -1
 	elseif last_move == "up" then
-		py -= 1
+		dy = -1
 	else
-		py += 1
+		dy = 1
 	end
 
-	pt = false
-	store_path()
-	moved = true
-
-	local loc = mget(px + level.mapx, py + level.mapy)
-	if loc != 80 then
+	local counter = level.grid[px + dx + 1][py + dy + 1].count
+	if counter == max then
+		pq("blocked wall")
 		sliding = false
+	else
+		local blocked = false
+		for s in all(stuff) do
+			if s.ground and s.pushable and s.x == level.mapx + px + dx and s.y == level.mapy + py + dy then
+				blocked = true
+				break
+			end
+		end
+
+		if not blocked then
+			px += dx
+			py += dy
+			pt = false
+			store_path()
+			moved = true
+			path[1].sliding = true
+
+			local loc = mget(px + level.mapx, py + level.mapy)
+			if loc != 80 then
+				sliding = false
+			end
+		else
+			pq("blocked item")
+			sliding = false
+		end
+	end
+	
+	if not level.completed then
 		level.grid = build_grid(level.mapx, level.mapy, level)
 		grow_grass_impl(current_step_count)
 	end
@@ -399,7 +466,7 @@ function push_check(nextx, nexty)
 				return false
 			else
 				for s2 in all(stuff) do
-					if s2.ground and s2:same_level() and s2.x == nextx + dx + level.mapx and s2.y == nexty + dy + level.mapy then
+					if s2.ground and not s2.ice and s2:same_level() and s2.x == nextx + dx + level.mapx and s2.y == nexty + dy + level.mapy then
 						return false
 					end
 				end
