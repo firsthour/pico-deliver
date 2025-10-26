@@ -1,4 +1,13 @@
 function move()
+	play_music()
+
+	if show_title_screen then
+		if btnp(⬅️) or btnp(➡️) or btnp(⬆️) or btnp(⬇️) then
+			show_title_screen = false
+		end
+		return
+	end
+
 	tick += 1
 	moved = false
 
@@ -21,6 +30,12 @@ function move()
 		reset_level_steps()
 		path[1].s = current_step_count
 		reset_level_flag = false
+	end
+
+	if reset_grass_flag then
+		level.grid = build_grid(level.mapx, level.mapy, level)
+		grow_grass_impl(current_step_count)
+		reset_grass_flag = false
 	end
 end
 
@@ -88,7 +103,10 @@ function walk()
 		level.grass = 0
 	end
 
-	if(moved) pq(last_move)
+	if moved then
+		pq(last_move)
+		warping = false
+	end
 
 	--player has run out of steps so teleport them to the level's origin
 	if not debug and not level.completed and current_step_count < 0 then
@@ -115,8 +133,16 @@ function die()
 end
 
 function check(nextx, nexty)
-	if(nextx < 0 or nextx > playablex or nexty < 0 or nexty > playabley) return false
-	if(debug or current_step_count == 0) return true
+	if nextx < 0 or nextx > playablex or nexty < 0 or nexty > playabley then
+		return false
+	end
+
+	if(debug) return true
+	
+	if current_step_count == 0 then
+		pq("out of steps")
+		return true
+	end
 	
 	local checkx = nextx + level.mapx
 	local checky = nexty + level.mapy
@@ -128,6 +154,7 @@ function check(nextx, nexty)
 	
 	local disable_booting = false
 	local loc = mget(checkx, checky)
+	pq("loc check", loc)
 	if loc == floor_sprite + 3 then
 		--water, bridge
 		for i in all(inventory) do
@@ -140,6 +167,7 @@ function check(nextx, nexty)
 				level.grid = build_grid(level.mapx, level.mapy, level)
 				level.grass = 0
 				paint_walls()
+				pq("bridged")
 				break
 			end
 		end
@@ -152,6 +180,7 @@ function check(nextx, nexty)
 				mset(checkx, checky, 38)
 				reset_level_flag = true
 				unpaint_walls()
+				pq("roped")
 				return true
 			end
 		end
@@ -159,8 +188,8 @@ function check(nextx, nexty)
 		--above wall, jump
 		sfx(19)
 		py += 1
-		level.grid = build_grid(level.mapx, level.mapy, level)
-		grow_grass_impl(current_step_count)
+		reset_grass_flag = true
+		pq("jumped")
 		return true
 	elseif booting and loc != 80 then
 		disable_booting = true
@@ -466,7 +495,7 @@ function push_check(nextx, nexty)
 				return false
 			else
 				for s2 in all(stuff) do
-					if s2.ground and not s2.ice and s2:same_level() and s2.x == nextx + dx + level.mapx and s2.y == nexty + dy + level.mapy then
+					if s2.ground and not s2.ice and not s2.warp and s2:same_level() and s2.x == nextx + dx + level.mapx and s2.y == nexty + dy + level.mapy then
 						return false
 					end
 				end
@@ -480,4 +509,27 @@ function push_check(nextx, nexty)
 	end
 
 	return true
+end
+
+function play_music()
+	local bitmask = 7
+
+	local s1 = 0 -- 0-3 sailor's hornpipe https://musescore.com/user/4254271/scores/5818074
+	local s2 = 0 --todo
+	local s3 = 12 -- 12-15 in the evening mist https://musescore.com/user/36026640/scores/6717890 and https://musescore.com/user/34495352/scores/6277204
+	local s4 = 4 -- 4-11 only yesterday https://musescore.com/user/38627682/scores/7279355
+
+	if music_track == -1 then
+		music(s1, 0, bitmask)
+		music_track = s1
+	elseif latest_level_change_map == 4 and music_track != s2 then
+		music(s2, 0, bitmask)
+		music_track = s2
+	elseif latest_level_change_map == 8 and music_track != s3 then
+		music(s3, 0, bitmask)
+		music_track = s3
+	elseif latest_level_change_map == 12 and music_track != s4 then
+		music(s4, 0, bitmask)
+		music_track = s4
+	end
 end

@@ -1,5 +1,11 @@
 function draw()
 	cls()
+
+	if show_title_screen then
+		draw_title_screen()
+		return
+	end
+
 	map(level.mapx, level.mapy, 0, 0, playablex + 1, playabley + 1)
 
 	--draws the fences, actaully quite expensive, 17% of frame time
@@ -137,4 +143,73 @@ end
 
 function tiler(sprite, x, y)
 	spr(sprite, (x - level.mapx) * size, (y - level.mapy) * size)
+end
+
+function draw_title_screen()
+	       --------------------------------
+	local y = 0
+	local dy = 10
+
+	print_centered("strand and deliver", y, 14)
+	y += dy + 1
+	print_centered("developed by: first hour", y, 11)
+	y += dy + 1
+	print("goal: deliver the mail!", 0, y, 9)
+	y += dy
+	spr(1, 0, y - 2)
+	spr(32, 32, y - 2)
+	spr(33, 68, y - 2)
+	spr(34, 86, y - 2)
+	print("you", 10, y, 12)
+	print("mail", 42, y, 8)
+	print("▶", 80, y, 8)
+	print("mailbox", 98, y, 4)
+	y += dy
+	print("earn", 0, y, 7)
+	print("♪", 18, y, 14)
+	print("and thankful citizens!", 27, y, 7)
+	y += dy
+	print("♥ 5 / 5 step limit-watch out!", 0, y, 8)
+	spr(5, 120, y - 2, 1, 1, true)
+	y += dy
+	spr(48, 0, y - 2)
+	spr(20, 0, y - 2)
+	print("goal opens", 10, y, 15)
+	spr(48, 51, y - 2)
+	spr(21, 51, y - 2)
+	print("when", 61, y, 15)
+	print("▶", 88, y, 15)
+	spr(32, 78, y - 2)
+	spr(33, 93, y - 2)
+	y += dy
+	spr(19, 0, y - 2)
+	print("bridge - place on   or", 10, y, 2)
+	spr(51, 80, y - 2)
+	spr(55, 100, y - 2)
+	y += dy
+	spr(37, 0, y - 2)
+	print("rope - climb walls   ▶", 10, y, 9)
+	spr(25, 84, y - 2)
+	spr(38, 99, y - 2)
+	y += dy
+	spr(35, 0, y - 2)
+	spr(42, 32, y - 2)
+	spr(41, 68, y - 2)
+	spr(8, 100, y - 2)
+	print("apple   banana   boots   boat", 10, y, 7)
+	y += dy
+	spr(6, 0, y - 2)
+	spr(76, 24, y - 2)
+	spr(7, 33, y - 2)
+	spr(40, 73, y - 2)
+	print("dog     boulder   rock", 10, y, 7)
+	y += dy
+	print_centered("... and more!", y, 13)
+
+	       --------------------------------
+	print("   press ⬆️ ⬇️ ⬅️ ➡️ to play!", 0, 123, 14)
+end
+
+function print_centered(str, y, color)
+  print(str, 64 - (#str * 2), y, color) 
 end

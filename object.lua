@@ -18,7 +18,9 @@ object = {
 	slidex = 0,
 	slidey = 0,
 	ice = false,
-	gate = false
+	gate = false,
+	warp = false,
+	rock = false
 }
 
 function object:new(type, x, y, sprite)
@@ -476,6 +478,7 @@ end
 rock = object:new()
 rock.sprite = 40
 rock.pushable = true
+rock.rock = true
 
 function rock:handle()
 	if self.slidex != 0 or self.slidey != 0 then
@@ -486,6 +489,7 @@ function rock:handle()
 
 		local blocked = false
 		local loc = mget(self.x, self.y)
+		pq("rock loc", loc)
 		if loc != 80 then
 			blocked = true
 		else
@@ -578,5 +582,35 @@ function disappearing_block:handle()
 		mset(self.x, self.y, floor_sprite)
 		level.grid = build_grid(level.mapx, level.mapy, level)
 		level.grass = 0
+	end
+end
+
+warp = object:new()
+warp.warp = true
+
+function warp:handle()
+	if not warping and self:coll() then
+
+		for s in all(stuff) do
+			if s:same_level() and s.warp and px != s.x - level.mapx and py != s.y - level.mapy then
+				local rock_block = false
+				for s2 in all(stuff) do
+					if s2.rock and s2.x == s.x and s2.y == s.y then
+						rock_block = true
+					end
+				end
+				pq("rock block", rock_block)
+
+				if not rock_block then
+					pq("warp", px, py, s.x - level.mapx, s.y - level.mapy)
+					warping = true
+					px = s.x - level.mapx
+					py = s.y - level.mapy
+					level.grid = build_grid(level.mapx, level.mapy, level)
+					grow_grass_impl(level.completed and 50 or current_step_count)
+					break
+				end
+			end
+		end
 	end
 end

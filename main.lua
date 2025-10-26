@@ -19,7 +19,7 @@ function _init()
 	inventory_flash_tick = 8
 	
 	--hold down button frames
-	poke(0x5f5c, 4) --start
+	poke(0x5f5c, 5) --start
 	poke(0x5f5d, 2) --continue
 
 	--map size
@@ -45,6 +45,7 @@ function _init()
 	coins = 0
 	moved = false
 	reset_level_flag = false
+	reset_grass_flag = false
 	boating = false
 	lavad = {}
 	lavad[playabley] = true
@@ -55,11 +56,23 @@ function _init()
 	booting = false
 	show_coins = true
 	flash_coins = false
+	show_title_screen = false
+	warping = false
+	latest_level = 0
+	latest_level_change_map = 0
+	music_track = -1
 
 	scan_and_update_full_map()
 
-	if debug_world == 2 then
+	if debug_world == 1 then
+		steps = 5
+		coins = 0
+		level = build_level(0, 0)
+		px = 1
+		py = 2
+	elseif debug_world == 2 then
 		steps = 7
+		coins = 1
 		level = build_level(0, playabley * 3)
 		px = 15
 		py = 12
@@ -75,6 +88,7 @@ function _init()
 		py = 0
 	elseif debug_world == 5 then
 		steps = 7
+		coins = 5
 		level = build_level(playablex, playabley * 3)
 		px = 15
 		py = 12
@@ -95,11 +109,16 @@ function _init()
 		level = build_level(playablex * 2, playabley * 2)
 		px = 7
 		py = 0
+	elseif debug_world == 9 then
+		steps = 8
+		coins = 6
+		level = build_level(playablex * 2, playabley)
+		px = 7
+		py = 0
 	else
 		level = build_level(0, 0)
+		show_title_screen = true
 	end
-
-	--music(4)
 end
 
 function _update60()
@@ -173,7 +192,7 @@ function scan_and_update_full_map()
 					gate.open = true
 					gate.sprite = open_gate_sprite
 				end
-				if loc == 85 then
+				if loc == 74 or loc == 85 then
 					gate.lock_behind = true
 				end
 				add(stuff, gate)
@@ -247,6 +266,10 @@ function scan_and_update_full_map()
 				--disappearing block
 				mset(x, y, 64)
 				add(stuff, disappearing_block:new("disappearing_block", x, y))
+			elseif loc == 87 then
+				--warp
+				mset(x, y, 87)
+				add(stuff, warp:new("warp", x, y))
 			elseif loc == 66 then
 				--player, should only be at the very start
 				mset(x, y, fs)
@@ -282,6 +305,10 @@ function change_map()
 
 	level = build_level(newx, newy, is_level_completed(newx, newy))
 
+	if(level.completed) current_step_count = -1
+
+	latest_level_change_map = latest_level
+
 	--switch hanging rope/bridge to identical permanent sprite so during rewind we don't rewind it
 	for x = 1, playablex do
 		for y = 1, playabley do
@@ -303,6 +330,7 @@ end
 
 function store_level_completion_impl(x, y)
 	completed_levels[x * 13 + y * 9] = true
+	latest_level += 1
 end
 
 function is_level_completed(mapx, mapy)
