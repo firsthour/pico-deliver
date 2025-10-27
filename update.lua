@@ -1,14 +1,35 @@
 function move()
 	play_music()
 
+	if(btnp(🅾️)) music_on = not music_on
+
+	if latest_level == 16 then
+		show_win_screen = true
+		return
+	end
+
+	if(btnp(❎)) show_title_screen = not show_title_screen
+
 	if show_title_screen then
-		if btnp(⬅️) or btnp(➡️) or btnp(⬆️) or btnp(⬇️) then
+		local keyw = false
+		local keya = false
+		local keys = false
+		local keyd = false
+		while stat(30) do
+			local kp = stat(31)
+			keyw = kp == "w"
+			keya = kp == "a"
+			keys = kp == "s"
+			keyd = kp == "d"
+		end
+		if btnp(⬅️) or btnp(➡️) or btnp(⬆️) or btnp(⬇️) or keyw or keya or keys or keyd then
 			show_title_screen = false
 		end
 		return
 	end
 
 	tick += 1
+	if(tick % 60 == 0) second_counter += 1
 	moved = false
 
 	if teleporting then
@@ -26,6 +47,11 @@ function move()
 
 	handle()
 
+	if death_flag then
+		die()
+		death_flag = false
+	end
+
 	if reset_level_flag then
 		reset_level_steps()
 		path[1].s = current_step_count
@@ -40,12 +66,24 @@ function move()
 end
 
 function walk()
-	local bl = btnp(⬅️)
-	local br = btnp(➡️)
-	local bu = btnp(⬆️)
-	local bd = btnp(⬇️)
+	local keyw = false
+	local keya = false
+	local keys = false
+	local keyd = false
+	while stat(30) do
+		local kp = stat(31)
+		keyw = kp == "w"
+		keya = kp == "a"
+		keys = kp == "s"
+		keyd = kp == "d"
+	end
 
-	if(btnp(❎)) debug = not debug
+	local bl = btnp(⬅️) or keya -- or stat(28, 4)
+	local br = btnp(➡️) or keyd -- or stat(28, 7)
+	local bu = btnp(⬆️) or keyw -- or stat(28, 26)
+	local bd = btnp(⬇️) or keys -- or stat(28, 22)
+
+	--if(btnp(❎)) debug = not debug
 
 	--flip direction
 	pd = bl and -1 or br and 1 or pd
@@ -104,14 +142,18 @@ function walk()
 	end
 
 	if moved then
-		pq(last_move)
 		warping = false
 	end
 
 	--player has run out of steps so teleport them to the level's origin
 	if not debug and not level.completed and current_step_count < 0 then
+		del(path, path[1])
 		die()
 		teleport_started = true
+	end
+
+	if moved and not teleporting then
+		total_step_count += 1
 	end
 end
 
@@ -122,25 +164,25 @@ function die()
 	pt = true
 	teleporting = true
 	booting = false
-	del(path, path[1])
-	pq("path =", path)
 
 	for i = 1, #inventory do
 		if inventory[i].type == "boot" and inventory[i].flash then
 			inventory[i].flash = false
 		end
 	end
+
+	total_death_count += 1
 end
 
 function check(nextx, nexty)
 	if nextx < 0 or nextx > playablex or nexty < 0 or nexty > playabley then
 		return false
 	end
+		teleport_started = true
 
 	if(debug) return true
 	
 	if current_step_count == 0 then
-		pq("out of steps")
 		return true
 	end
 	
@@ -154,7 +196,6 @@ function check(nextx, nexty)
 	
 	local disable_booting = false
 	local loc = mget(checkx, checky)
-	pq("loc check", loc)
 	if loc == floor_sprite + 3 then
 		--water, bridge
 		for i in all(inventory) do
@@ -167,7 +208,6 @@ function check(nextx, nexty)
 				level.grid = build_grid(level.mapx, level.mapy, level)
 				level.grass = 0
 				paint_walls()
-				pq("bridged")
 				break
 			end
 		end
@@ -180,7 +220,6 @@ function check(nextx, nexty)
 				mset(checkx, checky, 38)
 				reset_level_flag = true
 				unpaint_walls()
-				pq("roped")
 				return true
 			end
 		end
@@ -189,7 +228,6 @@ function check(nextx, nexty)
 		sfx(19)
 		py += 1
 		reset_grass_flag = true
-		pq("jumped")
 		return true
 	elseif booting and loc != 80 then
 		disable_booting = true
@@ -202,7 +240,6 @@ function check(nextx, nexty)
 	local okay = level.completed and counter < max or counter <= steps and current_step_count > 0
 	if(not okay) return false
 
-	pq("gate check", nextx + level.mapx, nexty + level.mapy)
 	for s in all(stuff) do
 		if(s.gate and not s.open and s.x == nextx + level.mapx and s.y == nexty + level.mapy) return false
 	end
@@ -228,8 +265,12 @@ function check(nextx, nexty)
 end
 
 function handle()
+	if(teleporting) return
+
 	for s in all(stuff) do
-		if(not teleporting and s:same_level()) s:handle()
+		if s:same_level() then
+			s:handle()
+		end
 	end
 end
 
@@ -274,7 +315,6 @@ function teleport()
 	--only move every X frames
 	if(tick % (path[1].sliding and teleport_slide_tick or teleport_tick) != 0) return
 
-	pq("teleporting", path[1], path[1].x, path[1].y)
 	if #path > 0 then
 		px = path[1].x
 		py = path[1].y
@@ -286,7 +326,6 @@ function teleport()
 		if(path[1].item) path[1].item:unhandle()
 
 		if path[1].boot then
-			pq("greg path booted")
 			add(inventory, path[1].boot)
 		end
 
@@ -449,8 +488,8 @@ function slide()
 
 	local counter = level.grid[px + dx + 1][py + dy + 1].count
 	if counter == max then
-		pq("blocked wall")
 		sliding = false
+		ice_sfx = false
 	else
 		local blocked = false
 		for s in all(stuff) do
@@ -471,10 +510,11 @@ function slide()
 			local loc = mget(px + level.mapx, py + level.mapy)
 			if loc != 80 then
 				sliding = false
+				ice_sfx = false
 			end
 		else
-			pq("blocked item")
 			sliding = false
+			ice_sfx = false
 		end
 	end
 	
@@ -512,24 +552,97 @@ function push_check(nextx, nexty)
 end
 
 function play_music()
+	if not music_on then
+		music(-1)
+		music_track = -1
+		return
+	end
+
 	local bitmask = 7
 
 	local s1 = 0 -- 0-3 sailor's hornpipe https://musescore.com/user/4254271/scores/5818074
-	local s2 = 0 --todo
+	local s2 = 16 -- 16-20 vesuvius https://musescore.com/user/1271366/scores/554496
 	local s3 = 12 -- 12-15 in the evening mist https://musescore.com/user/36026640/scores/6717890 and https://musescore.com/user/34495352/scores/6277204
 	local s4 = 4 -- 4-11 only yesterday https://musescore.com/user/38627682/scores/7279355
-
-	if music_track == -1 then
+	
+	if latest_level_change_map >= 12 then
+		if music_track != s4 then
+			music(s4, 0, bitmask)
+			music_track = s4
+		end
+	elseif latest_level_change_map >= 8 then
+		if music_track != s3 then
+			music(s3, 0, bitmask)
+			music_track = s3
+		end
+	elseif latest_level_change_map >= 4 then
+		if music_track != s2 then
+			music(s2, 0, bitmask)
+			music_track = s2
+		end
+	elseif music_track == -1 then
 		music(s1, 0, bitmask)
 		music_track = s1
-	elseif latest_level_change_map == 4 and music_track != s2 then
-		music(s2, 0, bitmask)
-		music_track = s2
-	elseif latest_level_change_map == 8 and music_track != s3 then
-		music(s3, 0, bitmask)
-		music_track = s3
-	elseif latest_level_change_map == 12 and music_track != s4 then
-		music(s4, 0, bitmask)
-		music_track = s4
 	end
+end
+
+function change_map()
+	local newx, newy = level.mapx, level.mapy
+
+	if py == 0 then
+		py = playabley
+		newy -= playabley
+	elseif py == playabley then
+		py = 0
+		newy += playabley
+	elseif px == 0 then
+		px = playablex
+		newx -= playablex
+	else
+		px = 0
+		newx += playablex
+	end
+
+	current_step_count = steps
+
+	level = build_level(newx, newy, is_level_completed(newx, newy))
+
+	if(level.completed) current_step_count = -1
+
+	latest_level_change_map = latest_level
+
+	--switch hanging rope/bridge to identical permanent sprite so during rewind we don't rewind it
+	for x = 1, playablex do
+		for y = 1, playabley do
+			local loc = mget(x + level.mapx, y + level.mapy)
+			if loc == 38 then
+				mset(x + level.mapx, y + level.mapy, 39)
+			elseif loc == 27 then
+				mset(x + level.mapx, y + level.mapy, 28)
+			end
+		end
+	end
+
+	reset()
+end
+
+function store_level_completion()
+	store_level_completion_impl(level.mapx, level.mapy)
+end
+
+function store_level_completion_impl(x, y)
+	completed_levels[x * 13 + y * 9] = true
+	latest_level += 1
+end
+
+function is_level_completed(mapx, mapy)
+	return completed_levels[mapx * 13 + mapy * 9]
+end
+
+function store_level_grass(grass)
+	grass_levels[level.mapx * 13 + level.mapy * 9] = grass
+end
+
+function get_level_grass(mapx, mapy)
+	return grass_levels[mapx * 13 + mapy * 9] or 0
 end

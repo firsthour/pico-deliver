@@ -1,5 +1,5 @@
 function _init()
-	pq("start")
+	version = "1.0.0"
 
 	--globals
 	max = 0x7fff
@@ -17,6 +17,9 @@ function _init()
 	rock_slide_tick = 2
 	shop_flash_tick = 8
 	inventory_flash_tick = 8
+
+	--enable keyboard for wasd
+	poke(0x5f2d, 1)
 	
 	--hold down button frames
 	poke(0x5f5c, 5) --start
@@ -61,64 +64,17 @@ function _init()
 	latest_level = 0
 	latest_level_change_map = 0
 	music_track = -1
+	music_on = true
+	show_win_screen = false
+	total_death_count = 0
+	total_step_count = 0
+	ice_sfx = false
+	death_flag = false
+	second_counter = 0
 
 	scan_and_update_full_map()
 
-	if debug_world == 1 then
-		steps = 5
-		coins = 0
-		level = build_level(0, 0)
-		px = 1
-		py = 2
-	elseif debug_world == 2 then
-		steps = 7
-		coins = 1
-		level = build_level(0, playabley * 3)
-		px = 15
-		py = 12
-	elseif debug_world == 3 then
-		steps = 7
-		level = build_level(playablex, playabley * 3)
-		px = 13
-		py = 0
-	elseif debug_world == 4 then
-		steps = 7
-		level = build_level(playablex, playabley)
-		px = 8
-		py = 0
-	elseif debug_world == 5 then
-		steps = 7
-		coins = 5
-		level = build_level(playablex, playabley * 3)
-		px = 15
-		py = 12
-	elseif debug_world == 6 then
-		steps = 8
-		level = build_level(playablex * 2, playabley * 3)
-		px = 15
-		py = 11
-	elseif debug_world == 7 then
-		steps = 8
-		coins = 7
-		level = build_level(playablex * 3, playabley * 3)
-		px = 11
-		py = 0
-	elseif debug_world == 8 then
-		steps = 8
-		coins = 5
-		level = build_level(playablex * 2, playabley * 2)
-		px = 7
-		py = 0
-	elseif debug_world == 9 then
-		steps = 8
-		coins = 6
-		level = build_level(playablex * 2, playabley)
-		px = 7
-		py = 0
-	else
-		level = build_level(0, 0)
-		show_title_screen = true
-	end
+	setup_starting_level()
 end
 
 function _update60()
@@ -280,67 +236,81 @@ function scan_and_update_full_map()
 	end
 end
 
-function change_map()
-	local newx, newy = level.mapx, level.mapy
-
-	if py == 0 then
-		pq("north")
-		py = playabley
-		newy -= playabley
-	elseif py == playabley then
-		pq("south")
+function setup_starting_level()
+	if debug_world == 1 then
+		steps = 5
+		coins = 0
+		level = build_level(0, 0)
+		px = 1
+		py = 2
+	elseif debug_world == 2 then
+		steps = 6
+		coins = 3
+		level = build_level(0, playabley * 2)
+		px = 8
+		py = 13
+	elseif debug_world == 3 then
+		steps = 7
+		coins = 1
+		level = build_level(0, playabley * 3)
+		px = 15
+		py = 12
+	elseif debug_world == 4 then
+		steps = 7
+		level = build_level(playablex, playabley * 3)
+		px = 13
 		py = 0
-		newy += playabley
-	elseif px == 0 then
-		pq("west")
-		px = playablex
-		newx -= playablex
+	elseif debug_world == 5 then
+		steps = 7
+		level = build_level(playablex, playabley)
+		px = 8
+		py = 0
+	elseif debug_world == 6 then
+		steps = 7
+		coins = 5
+		level = build_level(playablex, playabley * 3)
+		px = 15
+		py = 12
+	elseif debug_world == 7 then
+		steps = 8
+		level = build_level(playablex * 2, playabley * 3)
+		px = 15
+		py = 11
+	elseif debug_world == 8 then
+		steps = 8
+		coins = 7
+		level = build_level(playablex * 3, playabley * 3)
+		px = 11
+		py = 0
+	elseif debug_world == 9 then
+		steps = 8
+		coins = 5
+		level = build_level(playablex * 2, playabley * 2)
+		px = 7
+		py = 0
+	elseif debug_world == 10 then
+		steps = 8
+		coins = 6
+		level = build_level(playablex * 2, playabley)
+		px = 7
+		py = 0
+	elseif debug_world == 11 then
+		steps = 8
+		coins = 7
+		level = build_level(playablex * 2, 0)
+		latest_level_change_map = 12
+		px = 15
+		py = 3
+	elseif debug_world == 12 then
+		steps = 8
+		coins = 8
+		level = build_level(playablex * 3, 0)
+		latest_level = 15
+		latest_level_change_map = 12
+		px = 8
+		py = 13
 	else
-		pq("east")
-		px = 0
-		newx += playablex
+		level = build_level(0, 0)
+		show_title_screen = true
 	end
-
-	current_step_count = steps
-
-	level = build_level(newx, newy, is_level_completed(newx, newy))
-
-	if(level.completed) current_step_count = -1
-
-	latest_level_change_map = latest_level
-
-	--switch hanging rope/bridge to identical permanent sprite so during rewind we don't rewind it
-	for x = 1, playablex do
-		for y = 1, playabley do
-			local loc = mget(x + level.mapx, y + level.mapy)
-			if loc == 38 then
-				mset(x + level.mapx, y + level.mapy, 39)
-			elseif loc == 27 then
-				mset(x + level.mapx, y + level.mapy, 28)
-			end
-		end
-	end
-
-	reset()
-end
-
-function store_level_completion()
-	store_level_completion_impl(level.mapx, level.mapy)
-end
-
-function store_level_completion_impl(x, y)
-	completed_levels[x * 13 + y * 9] = true
-	latest_level += 1
-end
-
-function is_level_completed(mapx, mapy)
-	return completed_levels[mapx * 13 + mapy * 9]
-end
-
-function store_level_grass(grass)
-	grass_levels[level.mapx * 13 + level.mapy * 9] = grass
-end
-
-function get_level_grass(mapx, mapy)
-	return grass_levels[mapx * 13 + mapy * 9] or 0
 end

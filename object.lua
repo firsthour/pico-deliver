@@ -24,7 +24,6 @@ object = {
 }
 
 function object:new(type, x, y, sprite)
-	pq("new", type, x, y)
 	local obj = { type = type, x = x, y = y, sprite = sprite, originx = x, originy = y }
 	return setmetatable(obj, {__index = self})
 end
@@ -138,7 +137,6 @@ function gate:handle()
 	end
 
 	if moved and self.lock_behind and self.collided then
-		pq("lock behind")
 		self.collided = false
 		self.open = false
 		self.sprite = 11
@@ -148,7 +146,6 @@ function gate:handle()
 		pt = true
 		change_map()
 		self.collided = true
-		pq("collided")
 	end
 end
 
@@ -208,7 +205,8 @@ end
 
 function shop:handle()
 	if self:coll() then
-		if coins >= self.price then
+		if coins >= self.price then	
+			sfx(0)
 			self.ground = false
 			add(inventory, self.item)
 			coins -= self.price
@@ -220,6 +218,7 @@ function shop:handle()
 				end
 			end
 		elseif not self.flashing and not self.standing then
+			sfx(2)
 			self.flashing = true
 			self.flash_count = 0
 			self.standing = true
@@ -273,8 +272,9 @@ dog.mover = true
 
 function dog:handle()
 	if not debug and self:coll() then
-		die()
-	elseif self.ground and moved and not pt and self:same_level() then
+		if(moved) self:move()
+		death_flag = true
+	elseif self.ground and moved and not pt then
 		self:move()
 	end
 end
@@ -376,7 +376,9 @@ boulder.just_spawned = true
 
 function boulder:handle()
 	if not debug and self:coll() then
-		die()
+		--die()
+		--self:move()
+		death_flag = true
 	elseif self.ground and moved and not pt and self:same_level() then
 		self:move()
 	end
@@ -410,6 +412,7 @@ boat = object:new()
 
 function boat:handle()
 	if self:coll() then
+		sfx(3)
 		psp = 8
 		boating = true
 		self.ground = false
@@ -471,7 +474,13 @@ function ice:handle()
 			end
 		end
 
-		if(not booting) sliding = true
+		if not booting then
+			sliding = true
+			if not ice_sfx then
+				sfx(5)
+				ice_sfx = true
+			end
+		end
 	end
 end
 
@@ -489,7 +498,6 @@ function rock:handle()
 
 		local blocked = false
 		local loc = mget(self.x, self.y)
-		pq("rock loc", loc)
 		if loc != 80 then
 			blocked = true
 		else
@@ -519,6 +527,7 @@ function rock:handle()
 		self.pushing = false
 		self.x = self.pushingx
 		self.y = self.pushingy
+		sfx(4)
 
 		local loc = mget(self.x, self.y)
 		if loc == 80 then
@@ -577,7 +586,6 @@ disappearing_block.sprite = 64
 
 function disappearing_block:handle()
 	if self.ground and level.completed and self.sprite == 64 then
-		pq("in here")
 		self.ground = false
 		mset(self.x, self.y, floor_sprite)
 		level.grid = build_grid(level.mapx, level.mapy, level)
@@ -599,10 +607,9 @@ function warp:handle()
 						rock_block = true
 					end
 				end
-				pq("rock block", rock_block)
 
 				if not rock_block then
-					pq("warp", px, py, s.x - level.mapx, s.y - level.mapy)
+					sfx(37)
 					warping = true
 					px = s.x - level.mapx
 					py = s.y - level.mapy

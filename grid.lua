@@ -1,3 +1,5 @@
+-- https://www.youtube.com/watch?v=zA1uMY5f4Js
+
 dirx = { -1, 1, 0, 0 }
 diry = { 0, 0, -1, 1 }
 

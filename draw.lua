@@ -6,6 +6,11 @@ function draw()
 		return
 	end
 
+	if show_win_screen then
+		draw_win_screen()
+		return
+	end
+
 	map(level.mapx, level.mapy, 0, 0, playablex + 1, playabley + 1)
 
 	--draws the fences, actaully quite expensive, 17% of frame time
@@ -91,68 +96,12 @@ function draw_map()
 	end
 end
 
-function tile()
-	for x = level.mapx, level.mapx + playablex do
-		for y = level.mapy, level.mapy + playabley do
-			if full(x, y) then
-				--first draw the base sprite so other sprites can draw on top
-				tiler(floor_sprite, x, y)
-
-				local left = full(x - 1, y)
-				local right = full(x + 1, y)
-				local up = full(x, y - 1)
-				local down = full(x, y + 1)
-				
-				if left then
-					if right then
-						if up then
-							if(down) tiler(96, x, y) else tiler(97, x, y)
-						else
-							if(down) tiler(98, x, y) else tiler(99, x, y)
-						end
-					else
-						if up then
-							if(down) tiler(100, x, y) else tiler(101, x, y)
-						else
-							if(down) tiler(102, x, y) else tiler(103, x, y)
-						end
-					end
-				else
-					if right then
-						if up then
-							if(down) tiler(104, x, y) else tiler(105, x, y)
-						else
-							if(down) tiler(106, x, y) else tiler(107, x, y)
-						end
-					else
-						if up then
-							if(down) tiler(108, x, y) else tiler(109, x, y)
-						else
-							if(down) tiler(110, x, y) else tiler(111, x, y)
-						end
-					end
-				end
-			end
-		end
-	end
-end
-
-function full(x, y)
-	return mget(x, y) == 64
-end
-
-function tiler(sprite, x, y)
-	spr(sprite, (x - level.mapx) * size, (y - level.mapy) * size)
-end
-
 function draw_title_screen()
 	       --------------------------------
 	local y = 0
 	local dy = 10
 
-	print_centered("strand and deliver", y, 14)
-	y += dy + 1
-	print_centered("developed by: first hour", y, 11)
+	print_centered("step and deliver by first hour", y, 14)
 	y += dy + 1
 	print("goal: deliver the mail!", 0, y, 9)
 	y += dy
@@ -199,12 +148,14 @@ function draw_title_screen()
 	print("apple   banana   boots   boat", 10, y, 7)
 	y += dy
 	spr(6, 0, y - 2)
-	spr(76, 24, y - 2)
-	spr(7, 33, y - 2)
-	spr(40, 73, y - 2)
-	print("dog     boulder   rock", 10, y, 7)
+	spr(76, 31, y - 2)
+	spr(7, 40, y - 2)
+	spr(40, 88, y - 2)
+	print("dog       boulder     rock", 10, y, 7)
 	y += dy
-	print_centered("... and more!", y, 13)
+	print_centered("... and more!", y, 7)
+	y += dy
+	print("🅾️ toggle music         ❎ pause", 0, y, 13)
 
 	       --------------------------------
 	print("   press ⬆️ ⬇️ ⬅️ ➡️ to play!", 0, 123, 14)
@@ -212,4 +163,33 @@ end
 
 function print_centered(str, y, color)
   print(str, 64 - (#str * 2), y, color) 
+end
+
+function draw_win_screen()
+	       --------------------------------
+	local y = 0
+	local dy = 10
+
+	print_centered("you win! thank you for playing..", y, 9)
+	y += dy
+	print_centered("step and deliver by: first hour", y, 14)
+	y += dy
+	print_centered("steps: " .. total_step_count, y, 4)
+	y += dy
+	print_centered("deaths: " .. total_death_count, y, 5)
+	y += dy
+	print_centered("time: " .. second_counter .. " seconds", y, 2)
+	y += dy
+	print("music credits:", 0, y, 13)
+	y += dy
+	print("the sailor's hornpipe", 0, y, 11)
+	y += dy + 2
+	print("vesuvius (clarinet part)", 0, y, 8)
+	print("- frank ticheli", 0, y + 8, 8)
+	y += dy + dy
+	print("in the evening mist (from hausu)", 0, y, 12)
+	print("- asei kobayashi, mickie yoshino", 0, y + 8, 12)
+	y += dy + dy
+	print("main theme (from only yesterday)", 0, y, 7)
+	print("- katsu hoshi", 0, y + 8, 7)
 end
